@@ -122,7 +122,7 @@ struct Groundtruth
     float dist;
 };
 
-void calc_gt4cluster(const char *gtpath, DATA_TYPE **data, int data_size, DATA_TYPE **querys, int size, int dim)
+void calc_gt4cluster(std::string gtpath, DATA_TYPE **data, int data_size, DATA_TYPE **querys, int size, int dim)
 {
     int topk = 100;
     std::vector<Groundtruth> gt(data_size); // 11273

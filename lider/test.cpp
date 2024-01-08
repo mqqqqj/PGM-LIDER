@@ -4,7 +4,8 @@
 void test_core()
 {
     // read cluster0 info
-    const char *filePath = "/home/mqj/data/sift/100-kmeans/clustersInfo.num.vec";
+    int c = 300;
+    std::string filePath = "/home/mqj/data/sift/" + std::to_string(c) + "-kmeans/clustersInfo.num.vec";
     std::ifstream inputFile(filePath, std::ios::binary);
     int N;
     inputFile.read(reinterpret_cast<char *>(&N), sizeof(int));
@@ -18,7 +19,7 @@ void test_core()
     {
         data[i] = new DATA_TYPE[dim];
     }
-    const char *filePath1 = "/home/mqj/data/sift/100-kmeans/cluster0_data.bin";
+    std::string filePath1 = "/home/mqj/data/sift/" + std::to_string(c) + "-kmeans/cluster0_data.bin";
     std::ifstream dataFile(filePath1, std::ios::binary);
     for (int i = 0; i < N; i++)
     {
@@ -27,7 +28,7 @@ void test_core()
     dataFile.close();
 
     size_t *indices = new size_t[N];
-    std::string indicePath = "/home/mqj/data/sift/100-kmeans/cluster0_indices.bin";
+    std::string indicePath = "/home/mqj/data/sift/" + std::to_string(c) + "-kmeans/cluster0_indices.bin";
     std::ifstream indiceFile(indicePath, std::ios::binary);
     for (int i = 0; i < N; i++)
     {
@@ -61,7 +62,7 @@ void test_core()
     qFile.close();
 
     // calculate groundtruth
-    const char *gtpath = "./gt-cluster0-100query-top100.bin";
+    std::string gtpath = "./gt-cluster0-" + std::to_string(c) + "query-top100.bin";
     std::cout << "start calculate groundtruth" << std::endl;
     calc_gt4cluster(gtpath, data, N, query_set, 100, 128);
 

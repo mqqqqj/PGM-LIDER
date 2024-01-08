@@ -6,6 +6,7 @@
 #include "utils.hpp"
 
 // #define TEST_CORE
+// #define MULTI_THREAD
 
 struct LabelHashkey
 {
@@ -105,12 +106,89 @@ public:
 
     std::vector<size_t> query(DATA_TYPE *query, std::vector<size_t> &hashed_query)
     {
-        // 1. 对查询点进行hash
-        // 2. 对每个hashkey进行rescale
-        // 3. 对每个hashkey进行查询
-        // 4. 对每个查询结果进行合并
-        // 5. 对合并结果进行排序
-        // 6. 取前k个结果
+// 1. 对查询点进行hash
+// 2. 对每个hashkey进行rescale
+// 3. 对每个hashkey进行查询
+// 4. 对每个查询结果进行合并
+// 5. 对合并结果进行排序
+// 6. 取前k个结果
+#ifdef MULTI_THREAD
+        std::set<size_t> global_candidates;
+        std::vector<std::set<size_t>> local_candidates(H);
+        std::vector<std::thread> threads;
+        for (int table_id = 0; table_id < H; table_id++)
+        {
+            threads.push_back(std::thread([&, table_id]()
+                                          {
+            float rescaled_hashkey = (hashed_query[table_id] - SKHashArray[table_id][0].hashkey) * (N - 1) / (SKHashArray[table_id][N - 1].hashkey - SKHashArray[table_id][0].hashkey);
+            auto range = pgm_indexes[table_id].search(rescaled_hashkey);
+            auto lo = RescaledArray[table_id].begin() + range.lo;
+            auto hi = RescaledArray[table_id].begin() + range.hi;
+            int location = std::distance(RescaledArray[table_id].begin(), std::lower_bound(lo, hi, rescaled_hashkey));
+
+            // ESK-extension bi-directional search
+            int right = location;
+            if (right == N)
+            {
+                right--;
+            }
+            int left = right > 0 ? right - 1 : right;
+            int count = 0;
+            while (count < R)
+            {
+                if (ExtendLSHDistance(SKHashArray[table_id][left].hashkey, hashed_query[table_id]) < ExtendLSHDistance(SKHashArray[table_id][right].hashkey, hashed_query[table_id]))
+                {
+                    local_candidates[table_id].insert(SKHashArray[table_id][left].label);
+                    count++;
+                    if (left == 0)
+                    {
+                        while (count < R && right < N)
+                        {
+                            local_candidates[table_id].insert(SKHashArray[table_id][right].label);
+                            count++;
+                            right++;
+                        }
+                        break;
+                    }
+                    else
+                    {
+                        left--;
+                    }
+                }
+                else
+                {
+                    local_candidates[table_id].insert(SKHashArray[table_id][right].label);
+                    count++;
+                    if (right == N - 1)
+                    {
+                        while (count < R && left >= 0)
+                        {
+                            local_candidates[table_id].insert(SKHashArray[table_id][left].label);
+                            count++;
+                            left--;
+                        }
+                        break;
+                    }
+                    else
+                    {
+                        right++;
+                    }
+                }
+            } }));
+        }
+        for (auto &thread : threads)
+        {
+            thread.join();
+        }
+        // global_candidate add local_candidates
+        for (auto &local_candidate : local_candidates)
+        {
+            // assert(local_candidate.size() == R);
+            global_candidates.insert(local_candidate.begin(), local_candidate.end());
+        }
+        // debugInfo("search range:", (float)candidates.size() / N);
+        std::vector<size_t> candidate_labels(global_candidates.begin(), global_candidates.end());
+#else
         std::set<size_t> candidates;
         for (int table_id = 0; table_id < H; table_id++)
         {
@@ -172,6 +250,7 @@ public:
         }
         // debugInfo("search range:", (float)candidates.size() / N);
         std::vector<size_t> candidate_labels(candidates.begin(), candidates.end());
+#endif
         // 使用 std::partial_sort 对 candidate_labels 进行部分排序，只保证前 km 个元素是有序的，
         std::partial_sort(std::begin(candidate_labels), candidate_labels.begin() + km, std::end(candidate_labels),
                           [this, &query](const size_t &l1, const size_t &l2)

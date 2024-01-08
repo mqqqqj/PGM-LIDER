@@ -9,7 +9,7 @@ int k = 10; // Number of output points by LIDER
 int r0 = 20;
 int M = 20;
 int c0 = 20; // Number of output centroids by top level core model
-int c = 100; // 在cluster.py中聚了100个类
+int c = 300; // 在cluster.py中聚类
 std::vector<std::vector<std::vector<float>>> uniform_planes = gen_uniform_planes(H, M, D);
 
 void process_cluster(int in_cluster_id, int N, std::vector<CoreModel<DATA_TYPE, 64>> &InClusterRetrivers)
@@ -19,7 +19,7 @@ void process_cluster(int in_cluster_id, int N, std::vector<CoreModel<DATA_TYPE, 
     {
         data[i] = new DATA_TYPE[D];
     }
-    std::string dataPath = "/home/mqj/data/sift/100-kmeans/cluster" + std::to_string(in_cluster_id) + "_data.bin";
+    std::string dataPath = "/home/mqj/data/sift/" + std::to_string(c) + "-kmeans/cluster" + std::to_string(in_cluster_id) + "_data.bin";
     std::ifstream dataFile(dataPath, std::ios::binary);
     for (int i = 0; i < N; i++)
     {
@@ -27,7 +27,7 @@ void process_cluster(int in_cluster_id, int N, std::vector<CoreModel<DATA_TYPE, 
     }
     dataFile.close();
     size_t *indices = new size_t[N];
-    std::string indicePath = "/home/mqj/data/sift/100-kmeans/cluster" + std::to_string(in_cluster_id) + "_indices.bin";
+    std::string indicePath = "/home/mqj/data/sift/" + std::to_string(c) + "-kmeans/cluster" + std::to_string(in_cluster_id) + "_indices.bin";
     std::ifstream indiceFile(indicePath, std::ios::binary);
     for (int i = 0; i < N; i++)
     {
@@ -48,7 +48,7 @@ int main()
     // read data for CentroidsRetriver
     std::vector<CoreModel<DATA_TYPE, 64>> InClusterRetrivers(c);
     // read cluster info
-    const char *filePath = "/home/mqj/data/sift/100-kmeans/clustersInfo.num.vec";
+    std::string filePath = "/home/mqj/data/sift/" + std::to_string(c) + "-kmeans/clustersInfo.num.vec";
     std::ifstream inputFile(filePath, std::ios::binary);
     int ClusetersSize[c];
     for (int in_cluster_id = 0; in_cluster_id < c; in_cluster_id++)
@@ -82,7 +82,7 @@ int main()
     }
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    std::cout << "Lider build time cost: " << duration.count() / 1000.0 << " seconds." << std::endl;
+    std::cout << "Construction time cost of LIDER: " << duration.count() / 1000.0 << " seconds." << std::endl;
     // read base data
     std::string base = "/home/mqj/data/sift/sift_base.fvecs";
     std::ifstream baseFile(base, std::ios::binary);

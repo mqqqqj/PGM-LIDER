@@ -1,15 +1,17 @@
 import numpy as np  
 import pdb 
+from sklearnex import patch_sklearn
 from sklearn.cluster import KMeans 
 import struct
 import gc
 import os
+import time
 # os.environ["OPENBLAS_NUM_THREADS"] = "1"
 # os.environ["NUM_THREADS"] = "1"
 # os.environ["OMP_NUM_THREADS"] = "1"
 
 prefix = '/home/mqj/data/sift'
-
+patch_sklearn()
 data = [] 
 # 打开二进制文件  
 with open(prefix+'/sift_base.fvecs', 'rb') as f:  
@@ -24,7 +26,7 @@ print("finish read")
 # pdb.set_trace()
 gc.collect()
 
-n_clusters = 100
+n_clusters = 400
 cluster_directory = os.path.dirname(f'{prefix}/{n_clusters}-kmeans/')
 if not os.path.exists(cluster_directory):
     try:
@@ -35,8 +37,10 @@ if not os.path.exists(cluster_directory):
 else:
     print("目录已存在")
 
+start_time = time.time()  # 获取当前时间
 kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(data) 
-print("finish kmeans")
+end_time = time.time()  # 获取当前时间
+print(f"finish kmeans: {end_time - start_time} seconds")
 
 # 将每个类的数据分别存储到二进制文件中，并记录每个类所包含的向量数和聚类中心
 for i in range(n_clusters):
