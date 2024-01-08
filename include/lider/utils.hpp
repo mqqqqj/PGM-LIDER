@@ -167,7 +167,7 @@ float Recall(std::vector<std::vector<size_t>> results, int **gt_set, int q_size,
             }
         }
     }
-    std::cout << hit << " / " << q_size * k << std ::endl;
+    // std::cout << hit << " / " << q_size * k << std ::endl;
     return static_cast<float>(hit) / (q_size * k);
 }
 

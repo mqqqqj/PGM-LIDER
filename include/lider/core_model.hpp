@@ -1,10 +1,11 @@
 #pragma once
 #include <set>
 #include <mutex>
+#include <thread>
 #include "./pgm/pgm_index.hpp"
 #include "utils.hpp"
 
-#define TEST_CORE
+// #define TEST_CORE
 
 struct LabelHashkey
 {
@@ -20,7 +21,7 @@ private:
     int H;  // Number of hashkey arrays, number of planes
     int M;  // hashkey length in ESK-LSH
     int r0; // extend user-specific factor
-    int R;  // R = r0 * M
+    int R;  // R = r0 * km
     int N;  // cluster size / centroids number
     int D;  // dimension of data
     int id; // id of model 0~c

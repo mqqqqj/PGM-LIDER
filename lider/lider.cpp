@@ -33,12 +33,12 @@ void process_cluster(int in_cluster_id, int N, std::vector<CoreModel<DATA_TYPE, 
     {
         indiceFile.read(reinterpret_cast<char *>(&indices[i]), sizeof(size_t));
     }
-    std::cout << "finish read cluster " << in_cluster_id << std::endl;
+    // std::cout << "finish read cluster " << in_cluster_id << std::endl;
 
     CoreModel<DATA_TYPE, 64> InClusterRetriver(km, H, M, r0, N, D, in_cluster_id + 1); // in cluster id range:1~c
     InClusterRetriver.index(data, indices, uniform_planes);
     InClusterRetrivers[in_cluster_id] = InClusterRetriver;
-    std::cout << "finish build InClusterRetriver " << in_cluster_id << std::endl;
+    // std::cout << "finish build InClusterRetriver " << in_cluster_id << std::endl;
 }
 
 int main()
@@ -56,7 +56,7 @@ int main()
         centroidsData[in_cluster_id] = new DATA_TYPE[D];
         inputFile.read(reinterpret_cast<char *>(&ClusetersSize[in_cluster_id]), sizeof(int));
         inputFile.read(reinterpret_cast<char *>(centroidsData[in_cluster_id]), sizeof(DATA_TYPE) * D);
-        std::cout << "cluster " << in_cluster_id << "'s size: " << ClusetersSize[in_cluster_id] << std::endl;
+        // std::cout << "cluster " << in_cluster_id << "'s size: " << ClusetersSize[in_cluster_id] << std::endl;
     }
     inputFile.close();
 
@@ -65,8 +65,9 @@ int main()
     size_t *centroidIndices = new size_t[c];
     for (int i = 0; i < c; i++)
         centroidIndices[i] = i;
+    auto start_time = std::chrono::high_resolution_clock::now();
     CentroidsRetriver.index(centroidsData, centroidIndices, uniform_planes);
-    std::cout << "finish build CentroidsRetriver" << std::endl;
+    // std::cout << "finish build CentroidsRetriver" << std::endl;
 
     std::vector<std::thread> threads;
     for (int in_cluster_id = 0; in_cluster_id < c; in_cluster_id++)
@@ -79,7 +80,9 @@ int main()
     {
         th.join();
     }
-
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::cout << "Lider build time cost: " << duration.count() / 1000.0 << " seconds." << std::endl;
     // read base data
     std::string base = "/home/mqj/data/sift/sift_base.fvecs";
     std::ifstream baseFile(base, std::ios::binary);
@@ -110,17 +113,17 @@ int main()
     qFile.close();
 
     // start query
-    std::cout << "start query." << std::endl;
+    // std::cout << "start query." << std::endl;
     std::vector<std::vector<size_t>> results;
-    auto start_time = std::chrono::high_resolution_clock::now();
+    start_time = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < q_size; i++)
     {
         auto q_hashes = hash(uniform_planes, query_set[i]); // num_hashtable * hashkey_size
         auto result = lider.query(query_set[i], q_hashes);
         results.push_back(result);
     }
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    end_time = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     std::cout << "QPS: " << q_size / (duration.count() / 1000.0) << std::endl;
 
     // read groundtruth
@@ -136,7 +139,7 @@ int main()
         gtFile.read(reinterpret_cast<char *>(groundtruth[i]), sizeof(int) * k);
         gtFile.seekg(4 * (n - k), std::ios::cur);
     }
-    std::cout << "groundtruth read" << std::endl;
+    // std::cout << "groundtruth read" << std::endl;
     // calculate raceall
     float recall = Recall(results, groundtruth, q_size, k);
     std::cout << "RECALL: " << recall << std::endl;
