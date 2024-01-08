@@ -1,7 +1,7 @@
 #include "../include/lider/lider.hpp"
 #include <sstream>
 #include <thread>
-#include <future>
+
 const int D = 128;
 int H = 10;
 int km = 10;
@@ -9,7 +9,8 @@ int k = 10; // Number of output points by LIDER
 int r0 = 20;
 int M = 20;
 int c0 = 20; // Number of output centroids by top level core model
-int c = 300; // 在cluster.py中聚类
+int c = 200; // 在cluster.py中聚类
+
 std::vector<std::vector<std::vector<float>>> uniform_planes = gen_uniform_planes(H, M, D);
 
 void process_cluster(int in_cluster_id, int N, std::vector<CoreModel<DATA_TYPE, 64>> &InClusterRetrivers)

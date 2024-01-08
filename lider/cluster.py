@@ -26,7 +26,7 @@ print("finish read")
 # pdb.set_trace()
 gc.collect()
 
-n_clusters = 400
+n_clusters = 200
 cluster_directory = os.path.dirname(f'{prefix}/{n_clusters}-kmeans/')
 if not os.path.exists(cluster_directory):
     try:

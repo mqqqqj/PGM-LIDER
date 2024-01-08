@@ -4,7 +4,7 @@
 void test_core()
 {
     // read cluster0 info
-    int c = 300;
+    int c = 200;
     std::string filePath = "/home/mqj/data/sift/" + std::to_string(c) + "-kmeans/clustersInfo.num.vec";
     std::ifstream inputFile(filePath, std::ios::binary);
     int N;

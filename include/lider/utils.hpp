@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <bitset>
 #define DATA_TYPE float
-// #define CPP17 true
+// #define CPP17
 
 DATA_TYPE euclidean_distance(const std::vector<DATA_TYPE> &v, const std::vector<DATA_TYPE> &u)
 {

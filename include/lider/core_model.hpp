@@ -5,7 +5,7 @@
 #include "./pgm/pgm_index.hpp"
 #include "utils.hpp"
 
-// #define TEST_CORE
+#define TEST_CORE
 // #define MULTI_THREAD
 
 struct LabelHashkey

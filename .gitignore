@@ -1,11 +1,13 @@
 
 # Created by https://www.gitignore.io/api/c++,clion,macos
 # Edit at https://www.gitignore.io/?templates=c++,clion,macos
-
+*_report.txt
+massif.out.*
+*.bin
+*.data
 ### C++ ###
 # Prerequisites
 *.d
-*.bin
 # Compiled Object files
 *.slo
 *.lo
