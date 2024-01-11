@@ -3,13 +3,13 @@
 #include <thread>
 
 const int D = 128;
-int H = 10;
+int H = 16;
 int km = 10;
 int k = 10; // Number of output points by LIDER
-int r0 = 20;
+int r0 = 30;
 int M = 20;
-int c0 = 20; // Number of output centroids by top level core model
-int c = 200; // 在cluster.py中聚类
+int c0 = 30; // Number of output centroids by top level core model
+int c = 400; // 在cluster.py中聚类
 
 std::vector<std::vector<std::vector<float>>> uniform_planes = gen_uniform_planes(H, M, D);
 
@@ -100,7 +100,7 @@ int main()
     // read query info
     const char *qpath = "/home/mqj/data/sift/sift_query.fvecs";
     std::ifstream qFile(qpath, std::ios::binary);
-    int q_size = 100;
+    int q_size = 1000;
     DATA_TYPE **query_set = new DATA_TYPE *[q_size];
     for (int i = 0; i < q_size; i++)
     {

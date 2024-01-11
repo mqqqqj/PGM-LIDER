@@ -11,8 +11,15 @@
 #include <fstream>
 #include <unordered_set>
 #include <bitset>
+
 #define DATA_TYPE float
 // #define CPP17
+
+struct LabelHashkey
+{
+    size_t label;
+    size_t hashkey;
+};
 
 DATA_TYPE euclidean_distance(const std::vector<DATA_TYPE> &v, const std::vector<DATA_TYPE> &u)
 {

@@ -5,14 +5,8 @@
 #include "./pgm/pgm_index.hpp"
 #include "utils.hpp"
 
-#define TEST_CORE
+// #define TEST_CORE
 // #define MULTI_THREAD
-
-struct LabelHashkey
-{
-    size_t label;
-    size_t hashkey;
-};
 
 template <typename data_type = int, size_t epsilon = 64>
 class CoreModel
@@ -74,7 +68,6 @@ public:
 
     void index(DATA_TYPE **data, size_t *indices, std::vector<std::vector<std::vector<DATA_TYPE>>> &planes)
     {
-        // 将数据点hash
         this->data = data;
         this->indices = indices;
         for (int table_id = 0; table_id < H; table_id++)
@@ -82,7 +75,7 @@ public:
             for (int i = 0; i < N; i++)
             {
                 SKHashArray[table_id][i].label = i;
-                SKHashArray[table_id][i].hashkey = hash_in_bucket(planes[table_id], data[i]);
+                SKHashArray[table_id][i].hashkey = hash_in_bucket(planes[table_id], this->data[i]); // 使用this->data进行hash计算
             }
             // 对SKHashArray按照hashkey大小重新由低到高排序
             // std::sort(SKHashArray[table_id].begin(), SKHashArray[table_id].end());
@@ -113,68 +106,72 @@ public:
 // 5. 对合并结果进行排序
 // 6. 取前k个结果
 #ifdef MULTI_THREAD
+        int thread_num = 1;
         std::set<size_t> global_candidates;
         std::vector<std::set<size_t>> local_candidates(H);
         std::vector<std::thread> threads;
-        for (int table_id = 0; table_id < H; table_id++)
+        for (int thread_id = 0; thread_id < thread_num; thread_id++)
         {
-            threads.push_back(std::thread([&, table_id]()
+            threads.push_back(std::thread([&, thread_id]()
                                           {
-            float rescaled_hashkey = (hashed_query[table_id] - SKHashArray[table_id][0].hashkey) * (N - 1) / (SKHashArray[table_id][N - 1].hashkey - SKHashArray[table_id][0].hashkey);
-            auto range = pgm_indexes[table_id].search(rescaled_hashkey);
-            auto lo = RescaledArray[table_id].begin() + range.lo;
-            auto hi = RescaledArray[table_id].begin() + range.hi;
-            int location = std::distance(RescaledArray[table_id].begin(), std::lower_bound(lo, hi, rescaled_hashkey));
+                for (int table_id = thread_id * H / thread_num; table_id < (thread_id + 1) * H / thread_num; table_id++)
+                {
+                    float rescaled_hashkey = (hashed_query[table_id] - SKHashArray[table_id][0].hashkey) * (N - 1) / (SKHashArray[table_id][N - 1].hashkey - SKHashArray[table_id][0].hashkey);
+                    auto range = pgm_indexes[table_id].search(rescaled_hashkey);
+                    auto lo = RescaledArray[table_id].begin() + range.lo;
+                    auto hi = RescaledArray[table_id].begin() + range.hi;
+                    int location = std::distance(RescaledArray[table_id].begin(), std::lower_bound(lo, hi, rescaled_hashkey));
 
-            // ESK-extension bi-directional search
-            int right = location;
-            if (right == N)
-            {
-                right--;
-            }
-            int left = right > 0 ? right - 1 : right;
-            int count = 0;
-            while (count < R)
-            {
-                if (ExtendLSHDistance(SKHashArray[table_id][left].hashkey, hashed_query[table_id]) < ExtendLSHDistance(SKHashArray[table_id][right].hashkey, hashed_query[table_id]))
-                {
-                    local_candidates[table_id].insert(SKHashArray[table_id][left].label);
-                    count++;
-                    if (left == 0)
+                    // ESK-extension bi-directional search
+                    int right = location;
+                    if (right == N)
                     {
-                        while (count < R && right < N)
-                        {
-                            local_candidates[table_id].insert(SKHashArray[table_id][right].label);
-                            count++;
-                            right++;
-                        }
-                        break;
+                        right--;
                     }
-                    else
+                    int left = right > 0 ? right - 1 : right;
+                    int count = 0;
+                    while (count < R)
                     {
-                        left--;
-                    }
-                }
-                else
-                {
-                    local_candidates[table_id].insert(SKHashArray[table_id][right].label);
-                    count++;
-                    if (right == N - 1)
-                    {
-                        while (count < R && left >= 0)
+                        if (ExtendLSHDistance(SKHashArray[table_id][left].hashkey, hashed_query[table_id]) < ExtendLSHDistance(SKHashArray[table_id][right].hashkey, hashed_query[table_id]))
                         {
                             local_candidates[table_id].insert(SKHashArray[table_id][left].label);
                             count++;
-                            left--;
+                            if (left == 0)
+                            {
+                                while (count < R && right < N)
+                                {
+                                    local_candidates[table_id].insert(SKHashArray[table_id][right].label);
+                                    count++;
+                                    right++;
+                                }
+                                break;
+                            }
+                            else
+                            {
+                                left--;
+                            }
                         }
-                        break;
+                        else
+                        {
+                            local_candidates[table_id].insert(SKHashArray[table_id][right].label);
+                            count++;
+                            if (right == N - 1)
+                            {
+                                while (count < R && left >= 0)
+                                {
+                                    local_candidates[table_id].insert(SKHashArray[table_id][left].label);
+                                    count++;
+                                    left--;
+                                }
+                                break;
+                            }
+                            else
+                            {
+                                right++;
+                            }
+                        }
                     }
-                    else
-                    {
-                        right++;
-                    }
-                }
-            } }));
+                } }));
         }
         for (auto &thread : threads)
         {
@@ -268,5 +265,51 @@ public:
         }
         assert(result.size() == km);
         return result;
+    }
+
+    // size_t *indices;
+    // std::vector<std::vector<LabelHashkey>> SKHashArray;
+    // std::vector<std::vector<DATA_TYPE>> RescaledArray;
+    size_t *visitIndices()
+    {
+        return this->indices;
+    }
+    std::vector<std::vector<LabelHashkey>> visitSKHashArray()
+    {
+        return this->SKHashArray;
+    }
+    std::vector<std::vector<DATA_TYPE>> visiRescaledArray()
+    {
+        return this->RescaledArray;
+    }
+    int *search4Hili(int startid, int endid)
+    {
+        int *indices = new int[2 * H];
+        for (int table_id = 0; table_id < H; table_id++)
+        {
+            indices[table_id * 2] = -1;
+            indices[1 + table_id * 2] = -1;
+            for (int i = 0; i < SKHashArray[table_id].size(); i++)
+            {
+                if (SKHashArray[table_id][i].label == startid)
+                {
+                    indices[table_id * 2] = i;
+                }
+                if (SKHashArray[table_id][i].label == endid)
+                {
+                    indices[1 + table_id * 2] = i;
+                }
+                if (indices[table_id * 2] != -1 && indices[1 + table_id * 2] != -1)
+                {
+                    break;
+                }
+            }
+        }
+        for (int i = 0; i < 2 * H; i++)
+        {
+            std::cout << indices[i] << " ";
+        }
+        std ::cout << std::endl;
+        return indices;
     }
 };
