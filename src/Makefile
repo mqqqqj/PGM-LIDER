@@ -8,16 +8,16 @@ hili: hili.cpp ../include/lider/hili.hpp ../include/lider/utils.hpp
 	g++ -g -fopenmp -std=c++17 hili.cpp -I ../include -o hili.out
 
 runtest: test
-	./test_core.out
+	nohup ./test_core.out > test_core_result.txt 2>&1 &
 
 runlider: lider
-	./lider.out
+	nohup ./lider.out > lider_result.txt 2>&1 &
 
 runhili: hili
-	./hili.out
+	nohup ./hili.out > hili_result.txt 2>&1 &
 
 perf: lider
 	perf record -g ./lider.out && perf report > ./lider_report.txt
 
 clean:
-	rm -f *.out *.data *.data.old *_report.txt massif.out.*
+	rm -f *.out *.data *.data.old *_report.txt massif.out.* *_result.txt

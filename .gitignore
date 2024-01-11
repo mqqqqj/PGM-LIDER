@@ -2,6 +2,7 @@
 # Created by https://www.gitignore.io/api/c++,clion,macos
 # Edit at https://www.gitignore.io/?templates=c++,clion,macos
 *_report.txt
+*_result.txt
 massif.out.*
 *.bin
 *.data
