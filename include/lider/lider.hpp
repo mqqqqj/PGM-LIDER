@@ -38,24 +38,15 @@ public:
         std::vector<size_t> retrivedCentroids = CentroidsRetriver.query(query, hashed_query);
         assert(retrivedCentroids.size() == c0);
         std::vector<size_t> candidates(c0 * km);
-        // std::mutex mtx;
-        std::vector<std::thread> threads; // 存储所有线程的向量
+#pragma omp parallel for // num_threads(72) // 拉满
         for (int i = 0; i < c0; i++)
         {
-            threads.push_back(std::thread([&, i]() { // 捕获i和所有其他变量
-                std::vector<size_t> InClusterTOPKM = InClusterRetrivers[retrivedCentroids[i]].query(query, hashed_query);
-                assert(InClusterTOPKM.size() == km);
-                // std::lock_guard<std::mutex> lock(mtx); // 在修改candidates之前锁定互斥锁
-                for (int j = 0; j < km; j++)
-                {
-                    candidates[j + i * km] = InClusterTOPKM[j];
-                }
-            }));
-        }
-        // 等待所有线程完成
-        for (auto &thread : threads)
-        {
-            thread.join();
+            std::vector<size_t> InClusterTOPKM = InClusterRetrivers[retrivedCentroids[i]].query(query, hashed_query);
+            assert(InClusterTOPKM.size() == km);
+            for (int j = 0; j < km; j++)
+            {
+                candidates[j + i * km] = InClusterTOPKM[j];
+            }
         }
         assert(candidates.size() == c0 * km);
         // print_vector(candidates);

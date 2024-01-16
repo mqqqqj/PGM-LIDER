@@ -106,77 +106,72 @@ public:
 // 5. 对合并结果进行排序
 // 6. 取前k个结果
 #ifdef MULTI_THREAD
-        int thread_num = 1;
+        int thread_num = 2;
         std::set<size_t> global_candidates;
         std::vector<std::set<size_t>> local_candidates(H);
-        std::vector<std::thread> threads;
+#pragma omp parallel for num_threads(thread_num)
         for (int thread_id = 0; thread_id < thread_num; thread_id++)
         {
-            threads.push_back(std::thread([&, thread_id]()
-                                          {
-                for (int table_id = thread_id * H / thread_num; table_id < (thread_id + 1) * H / thread_num; table_id++)
-                {
-                    float rescaled_hashkey = (hashed_query[table_id] - SKHashArray[table_id][0].hashkey) * (N - 1) / (SKHashArray[table_id][N - 1].hashkey - SKHashArray[table_id][0].hashkey);
-                    auto range = pgm_indexes[table_id].search(rescaled_hashkey);
-                    auto lo = RescaledArray[table_id].begin() + range.lo;
-                    auto hi = RescaledArray[table_id].begin() + range.hi;
-                    int location = std::distance(RescaledArray[table_id].begin(), std::lower_bound(lo, hi, rescaled_hashkey));
+            for (int table_id = thread_id * H / thread_num; table_id < (thread_id + 1) * H / thread_num; table_id++)
+            {
+                float rescaled_hashkey = (hashed_query[table_id] - SKHashArray[table_id][0].hashkey) * (N - 1) / (SKHashArray[table_id][N - 1].hashkey - SKHashArray[table_id][0].hashkey);
+                auto range = pgm_indexes[table_id].search(rescaled_hashkey);
+                auto lo = RescaledArray[table_id].begin() + range.lo;
+                auto hi = RescaledArray[table_id].begin() + range.hi;
+                int location = std::distance(RescaledArray[table_id].begin(), std::lower_bound(lo, hi, rescaled_hashkey));
 
-                    // ESK-extension bi-directional search
-                    int right = location;
-                    if (right == N)
+                // ESK-extension bi-directional search
+                int right = location;
+                if (right == N)
+                {
+                    right--;
+                }
+                int left = right > 0 ? right - 1 : right;
+                int count = 0;
+                while (count < R)
+                {
+                    if (ExtendLSHDistance(SKHashArray[table_id][left].hashkey, hashed_query[table_id]) < ExtendLSHDistance(SKHashArray[table_id][right].hashkey, hashed_query[table_id]))
                     {
-                        right--;
-                    }
-                    int left = right > 0 ? right - 1 : right;
-                    int count = 0;
-                    while (count < R)
-                    {
-                        if (ExtendLSHDistance(SKHashArray[table_id][left].hashkey, hashed_query[table_id]) < ExtendLSHDistance(SKHashArray[table_id][right].hashkey, hashed_query[table_id]))
+                        local_candidates[table_id].insert(SKHashArray[table_id][left].label);
+                        count++;
+                        if (left == 0)
                         {
-                            local_candidates[table_id].insert(SKHashArray[table_id][left].label);
-                            count++;
-                            if (left == 0)
+                            while (count < R && right < N)
                             {
-                                while (count < R && right < N)
-                                {
-                                    local_candidates[table_id].insert(SKHashArray[table_id][right].label);
-                                    count++;
-                                    right++;
-                                }
-                                break;
+                                local_candidates[table_id].insert(SKHashArray[table_id][right].label);
+                                count++;
+                                right++;
                             }
-                            else
-                            {
-                                left--;
-                            }
+                            break;
                         }
                         else
                         {
-                            local_candidates[table_id].insert(SKHashArray[table_id][right].label);
-                            count++;
-                            if (right == N - 1)
-                            {
-                                while (count < R && left >= 0)
-                                {
-                                    local_candidates[table_id].insert(SKHashArray[table_id][left].label);
-                                    count++;
-                                    left--;
-                                }
-                                break;
-                            }
-                            else
-                            {
-                                right++;
-                            }
+                            left--;
                         }
                     }
-                } }));
+                    else
+                    {
+                        local_candidates[table_id].insert(SKHashArray[table_id][right].label);
+                        count++;
+                        if (right == N - 1)
+                        {
+                            while (count < R && left >= 0)
+                            {
+                                local_candidates[table_id].insert(SKHashArray[table_id][left].label);
+                                count++;
+                                left--;
+                            }
+                            break;
+                        }
+                        else
+                        {
+                            right++;
+                        }
+                    }
+                }
+            }
         }
-        for (auto &thread : threads)
-        {
-            thread.join();
-        }
+
         // global_candidate add local_candidates
         for (auto &local_candidate : local_candidates)
         {
@@ -270,7 +265,8 @@ public:
     // size_t *indices;
     // std::vector<std::vector<LabelHashkey>> SKHashArray;
     // std::vector<std::vector<DATA_TYPE>> RescaledArray;
-    size_t *visitIndices()
+    size_t *
+    visitIndices()
     {
         return this->indices;
     }

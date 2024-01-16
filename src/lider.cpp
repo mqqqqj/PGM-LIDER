@@ -1,7 +1,7 @@
 #include "../include/lider/lider.hpp"
 #include <sstream>
 #include <thread>
-
+// #include <omp.h>
 const int D = 128;
 int H = 16;
 int km = 10;
@@ -44,6 +44,9 @@ void process_cluster(int in_cluster_id, int N, std::vector<CoreModel<DATA_TYPE, 
 
 int main()
 {
+    // omp_set_nested(1);
+    unsigned int n = std::thread::hardware_concurrency();
+    std::cout << "物理核心数量: " << n << std::endl;
     CoreModel<DATA_TYPE, 64> CentroidsRetriver(c0, H, M, r0, c, D, 0); // centroid retriver id is 0
     DATA_TYPE **centroidsData = new DATA_TYPE *[c];
     // read data for CentroidsRetriver
@@ -71,15 +74,10 @@ int main()
     // std::cout << "finish build CentroidsRetriver" << std::endl;
 
     std::vector<std::thread> threads;
+#pragma omp parallel for
     for (int in_cluster_id = 0; in_cluster_id < c; in_cluster_id++)
     {
-        // void process_cluster(int in_cluster_id, std::vector<CoreModel<DATA_TYPE, 64>> &InClusterRetrivers, int *ClusetersSize)
-        threads.push_back(std::thread(process_cluster, in_cluster_id, ClusetersSize[in_cluster_id], std::ref(InClusterRetrivers)));
-    }
-
-    for (auto &th : threads)
-    {
-        th.join();
+        process_cluster(in_cluster_id, ClusetersSize[in_cluster_id], std::ref(InClusterRetrivers));
     }
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
@@ -115,13 +113,15 @@ int main()
 
     // start query
     // std::cout << "start query." << std::endl;
-    std::vector<std::vector<size_t>> results;
+    std::vector<std::vector<size_t>> results(q_size);
     start_time = std::chrono::high_resolution_clock::now();
+    // #pragma omp parallel for
     for (int i = 0; i < q_size; i++)
     {
         auto q_hashes = hash(uniform_planes, query_set[i]); // num_hashtable * hashkey_size
         auto result = lider.query(query_set[i], q_hashes);
-        results.push_back(result);
+        // results.push_back(result);
+        results[i] = result;
     }
     end_time = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
