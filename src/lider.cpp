@@ -46,7 +46,7 @@ int main()
 {
     // omp_set_nested(1);
     unsigned int n = std::thread::hardware_concurrency();
-    std::cout << "物理核心数量: " << n << std::endl;
+    std::cout << "cpu physical core number: " << n << std::endl;
     CoreModel<DATA_TYPE, 64> CentroidsRetriver(c0, H, M, r0, c, D, 0); // centroid retriver id is 0
     DATA_TYPE **centroidsData = new DATA_TYPE *[c];
     // read data for CentroidsRetriver
@@ -144,5 +144,6 @@ int main()
     // calculate raceall
     float recall = Recall(results, groundtruth, q_size, k);
     std::cout << "RECALL: " << recall << std::endl;
+    // lider.saveIndex("/home/mqj/models/lider.bin");
     return 0;
 }

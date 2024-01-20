@@ -13,7 +13,7 @@ private:
 
     CoreModel<DATA_TYPE, 64> CentroidsRetriver;
     std::vector<CoreModel<DATA_TYPE, 64>> InClusterRetrivers;
-
+    // std::set<size_t> candidates;
     std::vector<size_t> merge(std::vector<size_t> &candidates, DATA_TYPE *query)
     {
 
@@ -35,14 +35,18 @@ public:
 
     std::vector<size_t> query(DATA_TYPE *query, std::vector<size_t> &hashed_query)
     {
+        // candidates.clear();
         std::vector<size_t> retrivedCentroids = CentroidsRetriver.query(query, hashed_query);
         assert(retrivedCentroids.size() == c0);
         std::vector<size_t> candidates(c0 * km);
+
 #pragma omp parallel for // num_threads(72) // 拉满
         for (int i = 0; i < c0; i++)
         {
             std::vector<size_t> InClusterTOPKM = InClusterRetrivers[retrivedCentroids[i]].query(query, hashed_query);
             assert(InClusterTOPKM.size() == km);
+            // #pragma omp critical
+            //             candidates.insert(InClusterTOPKM.begin(), InClusterTOPKM.end());
             for (int j = 0; j < km; j++)
             {
                 candidates[j + i * km] = InClusterTOPKM[j];
@@ -51,7 +55,31 @@ public:
         assert(candidates.size() == c0 * km);
         // print_vector(candidates);
         // merge c0 * km results to k results
+        // int candidate_size = candidates.size();
+        // std::cout << candidate_size << std::endl;
+        // std::vector<size_t> v_candidates(candidates.begin(), candidates.end());
+        // std::vector<size_t> result = merge(v_candidates, query);
         std::vector<size_t> result = merge(candidates, query);
         return result;
+    }
+    void saveIndex(const std::string &location)
+    {
+        std::ofstream output(location, std::ios::binary);
+        std::streampos position;
+        // 将lider模型保存到output文件中
+        writeBinaryPOD(output, c0);
+        writeBinaryPOD(output, km);
+        writeBinaryPOD(output, c);
+        writeBinaryPOD(output, k);
+        writeBinaryPOD(output, D);
+        // data不用保存
+        output.close();
+        // 将CentroidsRetriver保存到output文件中
+        CentroidsRetriver.saveIndex(location);
+        // 将InClusterRetrivers保存到output文件中
+        for (int i = 0; i < c; i++)
+        {
+            InClusterRetrivers[i].saveIndex(location);
+        }
     }
 };

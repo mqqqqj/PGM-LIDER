@@ -106,7 +106,7 @@ public:
 // 5. 对合并结果进行排序
 // 6. 取前k个结果
 #ifdef MULTI_THREAD
-        int thread_num = 2;
+        int thread_num = 16;
         std::set<size_t> global_candidates;
         std::vector<std::set<size_t>> local_candidates(H);
 #pragma omp parallel for num_threads(thread_num)
@@ -189,7 +189,6 @@ public:
             auto lo = RescaledArray[table_id].begin() + range.lo;
             auto hi = RescaledArray[table_id].begin() + range.hi;
             int location = std::distance(RescaledArray[table_id].begin(), std::lower_bound(lo, hi, rescaled_hashkey));
-
             // ESK-extension bi-directional search
             int right = location;
             if (right == N)
@@ -242,7 +241,18 @@ public:
         }
         // debugInfo("search range:", (float)candidates.size() / N);
         std::vector<size_t> candidate_labels(candidates.begin(), candidates.end());
+
 #endif
+        // if (id > 0)
+        // {
+        //     for (int i = 0; i < candidate_labels.size(); i++)
+        //     {
+        //         candidate_labels[i] = indices[candidate_labels[i]];
+        //     }
+        //     return candidate_labels;
+        // }
+        // else
+        // {
         // 使用 std::partial_sort 对 candidate_labels 进行部分排序，只保证前 km 个元素是有序的，
         std::partial_sort(std::begin(candidate_labels), candidate_labels.begin() + km, std::end(candidate_labels),
                           [this, &query](const size_t &l1, const size_t &l2)
@@ -260,6 +270,7 @@ public:
         }
         assert(result.size() == km);
         return result;
+        // }
     }
 
     // size_t *indices;
@@ -307,5 +318,47 @@ public:
         }
         std ::cout << std::endl;
         return indices;
+    }
+    void saveIndex(const std::string &location)
+    {
+        std::ofstream output(location, std::ios::app | std::ios::binary);
+        std::streampos position;
+        // 将coremodel模型保存到output文件中
+        writeBinaryPOD(output, km);
+        writeBinaryPOD(output, H);
+        writeBinaryPOD(output, M);
+        writeBinaryPOD(output, r0);
+        writeBinaryPOD(output, R);
+        writeBinaryPOD(output, N);
+        writeBinaryPOD(output, D);
+        writeBinaryPOD(output, id);
+        // 将indices保存到output文件中
+        for (int i = 0; i < N; i++)
+        {
+            writeBinaryPOD(output, indices[i]);
+        }
+        // 将SKHashArray保存到output文件中
+        for (int table_id = 0; table_id < H; table_id++)
+        {
+            for (int i = 0; i < N; i++)
+            {
+                writeBinaryPOD(output, SKHashArray[table_id][i].label);
+                writeBinaryPOD(output, SKHashArray[table_id][i].hashkey);
+            }
+        }
+        // 将RescaledArray保存到output文件中
+        for (int table_id = 0; table_id < H; table_id++)
+        {
+            for (int i = 0; i < N; i++)
+            {
+                writeBinaryPOD(output, RescaledArray[table_id][i]);
+            }
+        }
+        // 将pgm_indexes保存到output文件中
+        for (int table_id = 0; table_id < H; table_id++)
+        {
+            pgm_indexes[table_id].saveIndex(location);
+        }
+        output.close();
     }
 };

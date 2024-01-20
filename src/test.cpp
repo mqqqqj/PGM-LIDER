@@ -4,7 +4,7 @@
 void test_core()
 {
     // read cluster0 info
-    int c = 200;
+    int c = 400;
     std::string filePath = "/home/mqj/data/sift/" + std::to_string(c) + "-kmeans/clustersInfo.num.vec";
     std::ifstream inputFile(filePath, std::ios::binary);
     int N;
@@ -37,9 +37,9 @@ void test_core()
 
     std::cout << "dim of data " << dim << std::endl;
     // build LIDER
-    int H = 10;
+    int H = 16;
     int km = 10;
-    int r0 = 20;
+    int r0 = 30;
     int M = 20;
     auto uniform_planes = gen_uniform_planes(H, M, dim);
     CoreModel<DATA_TYPE, 64> in_cluster_0(km, H, M, r0, N, dim, 1);
@@ -48,7 +48,7 @@ void test_core()
     // read query info
     const char *qpath = "/home/mqj/data/sift/sift_query.fvecs";
     std::ifstream qFile(qpath, std::ios::binary);
-    int q_size = 100;
+    int q_size = 1000;
     DATA_TYPE **query_set = new DATA_TYPE *[q_size];
     for (int i = 0; i < q_size; i++)
     {
