@@ -144,7 +144,7 @@ public:
 // 5. 对合并结果进行排序
 // 6. 取前k个结果
 #ifdef MULTI_THREAD
-        int thread_num = 16;
+        int thread_num = 32;
         std::set<size_t> global_candidates;
         std::vector<std::set<size_t>> local_candidates(H);
 #pragma omp parallel for num_threads(thread_num)

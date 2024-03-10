@@ -6,9 +6,9 @@ int H = 16;  // Number of hashkey arrays, number of planes
 int km = 10; // Number of output points by a core model
 int k = 10;  // Number of output points by LIDER
 int r0 = 16; // extend user-specific factor
-int M = 20;  // hashkey length in ESK-LSH, must less than 32
-int c0 = 20; // Number of output centroids by top level core model
-int c = 400; // 在cluster.py中聚类
+int M = 30;  // hashkey length in ESK-LSH, must less than 32
+int c0 = 30; // Number of output centroids by top level core model
+int c = 100; // 在cluster.py中聚类
 
 std::vector<std::vector<std::vector<float>>> uniform_planes = gen_uniform_planes(H, M, D);
 
@@ -110,15 +110,22 @@ int main()
 
     // start query
     std::vector<std::vector<size_t>> results(q_size);
+    // std::chrono::milliseconds total_query_duration(0);
     start_time = std::chrono::high_resolution_clock::now();
     // #pragma omp parallel for
     for (int i = 0; i < q_size; i++)
     {
-        auto q_hashes = hash(uniform_planes, query_set[i]); // num_hashtable * hashkey_size
+        auto q_hashes = hash(uniform_planes, query_set[i]);
+        // auto start_query = std::chrono::high_resolution_clock::now();
         results[i] = lider.query(query_set[i], q_hashes, false);
+        // auto end_query = std::chrono::high_resolution_clock::now();
+        // total_query_duration += std::chrono::duration_cast<std::chrono::milliseconds>(end_query - start_query);
     }
     end_time = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    // std::cout << "Query time cost of LIDER: " << total_query_duration.count() / 1000.0 << " seconds." << std::endl;
+    std::cout << "Total query time cost of LIDER: " << duration.count() / 1000.0 << " seconds." << std::endl;
+
     std::cout << "QPS: " << q_size / (duration.count() / 1000.0) << std::endl;
 
     // read groundtruth
