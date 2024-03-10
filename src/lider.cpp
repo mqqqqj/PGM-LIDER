@@ -1,14 +1,13 @@
 #include "../include/lider/lider.hpp"
 #include <sstream>
 #include <thread>
-// #include <omp.h>
 const int D = 128;
-int H = 16;
-int km = 10;
-int k = 10; // Number of output points by LIDER
-int r0 = 30;
-int M = 20;
-int c0 = 30; // Number of output centroids by top level core model
+int H = 16;  // Number of hashkey arrays, number of planes
+int km = 10; // Number of output points by a core model
+int k = 10;  // Number of output points by LIDER
+int r0 = 16; // extend user-specific factor
+int M = 20;  // hashkey length in ESK-LSH, must less than 32
+int c0 = 20; // Number of output centroids by top level core model
 int c = 400; // 在cluster.py中聚类
 
 std::vector<std::vector<std::vector<float>>> uniform_planes = gen_uniform_planes(H, M, D);
@@ -27,7 +26,7 @@ void process_cluster(int in_cluster_id, int N, std::vector<CoreModel<DATA_TYPE, 
         dataFile.read(reinterpret_cast<char *>(data[i]), sizeof(DATA_TYPE) * D);
     }
     dataFile.close();
-    size_t *indices = new size_t[N];
+    size_t *indices = new size_t[N]; // label
     std::string indicePath = "/home/mqj/data/sift/" + std::to_string(c) + "-kmeans/cluster" + std::to_string(in_cluster_id) + "_indices.bin";
     std::ifstream indiceFile(indicePath, std::ios::binary);
     for (int i = 0; i < N; i++)
@@ -72,8 +71,6 @@ int main()
     auto start_time = std::chrono::high_resolution_clock::now();
     CentroidsRetriver.index(centroidsData, centroidIndices, uniform_planes);
     // std::cout << "finish build CentroidsRetriver" << std::endl;
-
-    std::vector<std::thread> threads;
 #pragma omp parallel for
     for (int in_cluster_id = 0; in_cluster_id < c; in_cluster_id++)
     {
@@ -112,16 +109,13 @@ int main()
     qFile.close();
 
     // start query
-    // std::cout << "start query." << std::endl;
     std::vector<std::vector<size_t>> results(q_size);
     start_time = std::chrono::high_resolution_clock::now();
     // #pragma omp parallel for
     for (int i = 0; i < q_size; i++)
     {
         auto q_hashes = hash(uniform_planes, query_set[i]); // num_hashtable * hashkey_size
-        auto result = lider.query(query_set[i], q_hashes);
-        // results.push_back(result);
-        results[i] = result;
+        results[i] = lider.query(query_set[i], q_hashes, false);
     }
     end_time = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
@@ -145,5 +139,20 @@ int main()
     float recall = Recall(results, groundtruth, q_size, k);
     std::cout << "RECALL: " << recall << std::endl;
     // lider.saveIndex("/home/mqj/models/lider.bin");
+    // std::unordered_map<int, int> hotCluster = lider.getHotCluster();
+    // std::cout << "hotCluster: ";
+    // // 将unordered_map复制到vector
+    // std::vector<std::pair<int, int>> vec(hotCluster.begin(), hotCluster.end());
+
+    // // 对vector排序
+    // std::sort(vec.begin(), vec.end(), [](const std::pair<int, int> &a, const std::pair<int, int> &b)
+    //           { return a.second > b.second; });
+
+    // // 打印排序后的vector
+    // std::cout << "hotCluster: ";
+    // for (auto &i : vec)
+    // {
+    //     std::cout << i.first << ":" << i.second << std::endl;
+    // }
     return 0;
 }

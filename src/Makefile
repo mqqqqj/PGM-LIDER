@@ -1,14 +1,14 @@
 test: test.cpp ../include/lider/core_model.hpp ../include/lider/utils.hpp
-	g++ -g -fopenmp -std=c++17 test.cpp -I ../include -o test_core.out
+	g++ -fopenmp -mavx2 -std=c++17 test.cpp -I ../include -o test.out
 
 lider: lider.cpp ../include/lider/lider.hpp ../include/lider/core_model.hpp ../include/lider/utils.hpp
-	g++ -g -fopenmp -mavx2 -std=c++17 lider.cpp -I ../include -o lider.out
-
+	g++ -fopenmp -mavx2 -std=c++17 lider.cpp -I ../include -o lider.out
+# 调试时:g++ -g -gdwarf-4 -fopenmp -mavx2 -std=c++17 lider.cpp -I ../include -o lider.out
 hili: hili.cpp ../include/lider/hili.hpp ../include/lider/utils.hpp
 	g++ -g -fopenmp -std=c++17 hili.cpp -I ../include -o hili.out
 
 runtest: test
-	nohup ./test_core.out > test_core_result.txt 2>&1 &
+	nohup ./test.out > test_result.txt 2>&1 &
 
 runlider: lider
 	nohup ./lider.out > lider_result.txt 2>&1 &

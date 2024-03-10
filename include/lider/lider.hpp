@@ -1,4 +1,7 @@
 #include "../include/lider/core_model.hpp"
+#include <unordered_map>
+
+#define FLATSEARCH
 
 template <typename data_type = int, size_t epsilon = 64>
 class LIDER
@@ -10,7 +13,7 @@ private:
     int k;  // 最终输出的结果数
     int D;
     DATA_TYPE **data; // 数据集的全部数据
-
+    std::unordered_map<int, int> hotCluster;
     CoreModel<DATA_TYPE, 64> CentroidsRetriver;
     std::vector<CoreModel<DATA_TYPE, 64>> InClusterRetrivers;
     // std::set<size_t> candidates;
@@ -33,17 +36,39 @@ public:
     {
     }
 
-    std::vector<size_t> query(DATA_TYPE *query, std::vector<size_t> &hashed_query)
+    std::vector<size_t> query(DATA_TYPE *query, std::vector<size_t> &hashed_query, bool fixed_extension)
     {
         // candidates.clear();
-        std::vector<size_t> retrivedCentroids = CentroidsRetriver.query(query, hashed_query);
+#ifdef FLATSEARCH
+        size_t *s = CentroidsRetriver.getIndices();
+        // printf("%d\n", s[12]);
+        std::vector<size_t> retrivedCentroids = CentroidsRetriver.flatquery(query);
+#else
+        std::vector<size_t> retrivedCentroids = CentroidsRetriver.query(query, hashed_query, fixed_extension);
+#endif
         assert(retrivedCentroids.size() == c0);
+        // record hot cluster
+        for (int i = 0; i < c0; i++)
+        {
+            if (hotCluster.count(retrivedCentroids[i]) == 0)
+            {
+                hotCluster[retrivedCentroids[i]] = 1;
+            }
+            else
+            {
+                hotCluster[retrivedCentroids[i]]++;
+            }
+        }
         std::vector<size_t> candidates(c0 * km);
 
 #pragma omp parallel for // num_threads(72) // 拉满
         for (int i = 0; i < c0; i++)
         {
-            std::vector<size_t> InClusterTOPKM = InClusterRetrivers[retrivedCentroids[i]].query(query, hashed_query);
+#ifdef FLATSEARCH
+            std::vector<size_t> InClusterTOPKM = InClusterRetrivers[retrivedCentroids[i]].flatquery(query);
+#else
+            std::vector<size_t> InClusterTOPKM = InClusterRetrivers[retrivedCentroids[i]].query(query, hashed_query, fixed_extension);
+#endif
             assert(InClusterTOPKM.size() == km);
             // #pragma omp critical
             //             candidates.insert(InClusterTOPKM.begin(), InClusterTOPKM.end());
@@ -61,6 +86,10 @@ public:
         // std::vector<size_t> result = merge(v_candidates, query);
         std::vector<size_t> result = merge(candidates, query);
         return result;
+    }
+    std::unordered_map<int, int> getHotCluster()
+    {
+        return hotCluster;
     }
     void saveIndex(const std::string &location)
     {

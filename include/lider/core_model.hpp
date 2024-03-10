@@ -2,6 +2,8 @@
 #include <set>
 #include <mutex>
 #include <thread>
+#include <queue>
+#include <functional>
 #include "./pgm/pgm_index.hpp"
 #include "utils.hpp"
 
@@ -65,7 +67,10 @@ public:
             R = km * r0;
         SKHashArray.resize(H, std::vector<LabelHashkey>(N));
     }
-
+    size_t *getIndices()
+    {
+        return indices;
+    }
     void index(DATA_TYPE **data, size_t *indices, std::vector<std::vector<std::vector<DATA_TYPE>>> &planes)
     {
         this->data = data;
@@ -96,8 +101,41 @@ public:
             pgm_indexes.push_back(index);                            // 保存整个哈希桶的索引结果
         }
     }
-
-    std::vector<size_t> query(DATA_TYPE *query, std::vector<size_t> &hashed_query)
+    std::vector<size_t> flatquery(DATA_TYPE *query)
+    {
+        std::priority_queue<std::pair<DATA_TYPE, int>, std::vector<std::pair<DATA_TYPE, int>>, std::less<std::pair<DATA_TYPE, int>>> topkm;
+        for (int i = 0; i < N; i++)
+        {
+            DATA_TYPE d = euclidean_distance(query, data[i], D);
+            if (topkm.size() < km)
+            {
+                topkm.push(std::make_pair(d, i));
+            }
+            else
+            {
+                if (d < topkm.top().first)
+                {
+                    topkm.pop();
+                    topkm.push(std::make_pair(d, i));
+                }
+            }
+        }
+        std::vector<size_t> result(km); //?????
+        for (int i = 0; i < km; i++)
+        {
+            std::pair<DATA_TYPE, int> topElement = topkm.top();
+            topkm.pop();
+#ifdef TEST_CORE
+            result[i] = topElement.second; // result记录类内的id
+#else
+            result[i] = indices[topElement.second]; // result记录全体data的id
+#endif
+        }
+        assert(result.size() == km);
+        assert(topkm.empty() == true);
+        return result;
+    }
+    std::vector<size_t> query(DATA_TYPE *query, std::vector<size_t> &hashed_query, bool fixed_extension)
     {
 // 1. 对查询点进行hash
 // 2. 对每个hashkey进行rescale
@@ -181,7 +219,8 @@ public:
         // debugInfo("search range:", (float)candidates.size() / N);
         std::vector<size_t> candidate_labels(global_candidates.begin(), global_candidates.end());
 #else
-        std::set<size_t> candidates;
+        // std::set<size_t> candidates;
+        std::unordered_set<size_t> candidates;
         for (int table_id = 0; table_id < H; table_id++)
         {
             float rescaled_hashkey = (hashed_query[table_id] - SKHashArray[table_id][0].hashkey) * (N - 1) / (SKHashArray[table_id][N - 1].hashkey - SKHashArray[table_id][0].hashkey);
@@ -189,56 +228,82 @@ public:
             auto lo = RescaledArray[table_id].begin() + range.lo;
             auto hi = RescaledArray[table_id].begin() + range.hi;
             int location = std::distance(RescaledArray[table_id].begin(), std::lower_bound(lo, hi, rescaled_hashkey));
-            // ESK-extension bi-directional search
-            int right = location;
-            if (right == N)
+            if (fixed_extension)
             {
-                right--;
-            }
-            int left = right > 0 ? right - 1 : right;
-            int count = 0;
-            while (count < R)
-            {
-                if (ExtendLSHDistance(SKHashArray[table_id][left].hashkey, hashed_query[table_id]) < ExtendLSHDistance(SKHashArray[table_id][right].hashkey, hashed_query[table_id]))
+                int left = location > R / 2 ? location - R / 2 : 0;
+                int right = location + R / 2 < N ? location + R / 2 : N;
+                int count = 0;
+                if (right == N)
                 {
-                    candidates.insert(SKHashArray[table_id][left].label);
-                    count++;
-                    if (left == 0)
+                    while (count < R)
                     {
-                        while (count < R && right < N)
-                        {
-                            candidates.insert(SKHashArray[table_id][right].label);
-                            count++;
-                            right++;
-                        }
-                        break;
-                    }
-                    else
-                    {
-                        left--;
+                        candidates.insert(SKHashArray[table_id][N - 1 - count].label);
+                        count++;
                     }
                 }
                 else
                 {
-                    candidates.insert(SKHashArray[table_id][right].label);
-                    count++;
-                    if (right == N - 1)
+                    while (count < R)
                     {
-                        while (count < R && left >= 0)
+                        candidates.insert(SKHashArray[table_id][left + count].label);
+                        count++;
+                    }
+                }
+            }
+            else
+            {
+                // ESK-extension bi-directional search
+                int right = location;
+                if (right == N)
+                {
+                    right--;
+                }
+                int left = right > 0 ? right - 1 : right;
+                int count = 0;
+                while (count < R)
+                {
+                    if (ExtendLSHDistance(SKHashArray[table_id][left].hashkey, hashed_query[table_id]) < ExtendLSHDistance(SKHashArray[table_id][right].hashkey, hashed_query[table_id]))
+                    {
+                        candidates.insert(SKHashArray[table_id][left].label);
+                        count++;
+                        if (left == 0)
                         {
-                            candidates.insert(SKHashArray[table_id][left].label);
-                            count++;
+                            while (count < R && right < N)
+                            {
+                                candidates.insert(SKHashArray[table_id][right].label);
+                                count++;
+                                right++;
+                            }
+                            break;
+                        }
+                        else
+                        {
                             left--;
                         }
-                        break;
                     }
                     else
                     {
-                        right++;
+                        candidates.insert(SKHashArray[table_id][right].label);
+                        count++;
+                        if (right == N - 1)
+                        {
+                            while (count < R && left >= 0)
+                            {
+                                candidates.insert(SKHashArray[table_id][left].label);
+                                count++;
+                                left--;
+                            }
+                            break;
+                        }
+                        else
+                        {
+                            right++;
+                        }
                     }
                 }
             }
         }
+
         // debugInfo("search range:", (float)candidates.size() / N);
         std::vector<size_t> candidate_labels(candidates.begin(), candidates.end());
 
@@ -253,7 +318,7 @@ public:
         // }
         // else
         // {
-        // 使用 std::partial_sort 对 candidate_labels 进行部分排序，只保证前 km 个元素是有序的，
+        // 使用 std::partial_sort 对 candidate_labels 进行部分排序，只保证前 km 个元素是有序的
         std::partial_sort(std::begin(candidate_labels), candidate_labels.begin() + km, std::end(candidate_labels),
                           [this, &query](const size_t &l1, const size_t &l2)
                           {
@@ -263,9 +328,9 @@ public:
         for (int i = 0; i < km; i++)
         {
 #ifdef TEST_CORE
-            result[i] = candidate_labels[i]; // result是类内的id
+            result[i] = candidate_labels[i]; // result记录类内的id
 #else
-            result[i] = indices[candidate_labels[i]]; // result是全体data的id
+            result[i] = indices[candidate_labels[i]]; // result记录全体data的id
 #endif
         }
         assert(result.size() == km);
